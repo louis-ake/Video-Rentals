@@ -1,9 +1,11 @@
+const moment = require('moment');
 const { Rental } = require('../models/rentals');
 const express = require('express');
 const router = express.Router();
 const asyncMiddleware = require('../middleware/async');
+const auth = require('../middleware/auth');
 
-router.post('/', asyncMiddleware(async(req, res) => {
+router.post('/', auth, asyncMiddleware(async(req, res) => {
     if (!req.body.customerId) return res.status(400).send('customerId not provided');
     if (!req.body.movieId) return res.status(400).send('movieId not provided');
 
@@ -13,10 +15,15 @@ router.post('/', asyncMiddleware(async(req, res) => {
     });
 
     if (!rental) return res.status(404).send('Rental not found');
-    
+
     if (rental.dateReturned !== undefined) return res.status(400).send('Rental already processed');
 
-    res.status(401).send('unauthorised');
+    rental.dateReturned = new Date();
+    const rentalDays = moment().diff(rental.dateOut, 'days')
+    rental.rentalFee = rentalDays * rental.movie.dailyRentalRate;
+
+    await rental.save();
+    return res.status(200).send();
 }));
 
 module.exports = router;

@@ -1,3 +1,4 @@
+const moment = require('moment');
 const { Rental } = require('../../models/rentals');
 const { User } = require('../../models/users');
 const mongoose = require('mongoose');
@@ -22,7 +23,7 @@ describe('/api/returns', () => {
 
         customerId = mongoose.Types.ObjectId();
         movieId = mongoose.Types.ObjectId();
-        token = token = new User().generateAuthToken();
+        token = new User().generateAuthToken();
 
         rental = new Rental({
             customer: {
@@ -83,5 +84,31 @@ describe('/api/returns', () => {
         const res = await exec();
 
         expect(res.status).toBe(400);
+    });
+
+    it('should return 200 if request is valid', async () => {
+        const res = await exec();
+
+        expect(res.status).toBe(200);
+    });
+
+    it('should set the return date if input is valid', async () => {
+        await exec();
+
+        const rentalInDb = await Rental.findById(rental._id);
+        const diff = new Date() - rentalInDb.dateReturned;
+        expect(diff).toBeLessThan(10 * 1000); // 10 seconds
+    });
+
+    it('should calculate the rental fee if input is valid', async () => {
+        // by default dateOut is set to current time by mongoose
+        rental.dateOut = moment().add(-7, 'days').toDate();
+        await rental.save();
+        await exec();
+
+        const rentalInDb = await Rental.findById(rental._id);
+        //const diff = new Date().getDay() - rentalInDb.dateReturned.getDay();
+        //const fee = diff * rental.dailyRentalRate;
+        expect(rentalInDb.rentalFee).toBe(14);
     });
 });
