@@ -1,6 +1,7 @@
 const moment = require('moment');
 const { Rental } = require('../../models/rentals');
 const { User } = require('../../models/users');
+const { Movie } = require('../../models/movies');
 const mongoose = require('mongoose');
 const request = require('supertest');
 
@@ -10,6 +11,7 @@ describe('/api/returns', () => {
     let movieId;
     let rental;
     let token;
+    let movie;
 
     const exec = () => {
         return request(server)
@@ -24,6 +26,15 @@ describe('/api/returns', () => {
         customerId = mongoose.Types.ObjectId();
         movieId = mongoose.Types.ObjectId();
         token = new User().generateAuthToken();
+
+        movie = new Movie({
+            _id: movieId,
+            title: '12345',
+            dailyRentalRate: 2,
+            genre: { name: '12345'},
+            numberInStock: 10
+        });
+        await movie.save();
 
         rental = new Rental({
             customer: {
@@ -43,6 +54,7 @@ describe('/api/returns', () => {
     afterEach(async () => {
         await server.close();
         await Rental.remove({});
+        await Movie.remove({});
     });
 
     it('should return 401 if client is not logged in', async () => {
@@ -107,8 +119,27 @@ describe('/api/returns', () => {
         await exec();
 
         const rentalInDb = await Rental.findById(rental._id);
-        //const diff = new Date().getDay() - rentalInDb.dateReturned.getDay();
-        //const fee = diff * rental.dailyRentalRate;
         expect(rentalInDb.rentalFee).toBe(14);
+    });
+
+    it('should increase the movie stock if input is valid', async () => {
+        await exec();
+
+        const movieInDb = await Movie.findById(movie._id);
+        expect(movieInDb.numberInStock).toBe(movie.numberInStock + 1);
+    });
+
+    it('should return the rental if input is valid', async () => {
+        const res = await exec();
+
+        expect(Object.keys(res.body)).toEqual(
+            expect.arrayContaining([
+                'dateOut',
+                'dateReturned',
+                'rentalFee',
+                'customer',
+                'movie'
+            ])
+        );
     });
 });
