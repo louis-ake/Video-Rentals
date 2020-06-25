@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {Customer, validate} = require('../models/customers');
+const { Customer, validate } = require('../models/customers');
 const asyncMiddleware = require('../middleware/async'); 
 
 router.get('/', asyncMiddleware(async(req, res) => {
